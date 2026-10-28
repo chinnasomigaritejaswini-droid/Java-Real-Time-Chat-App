@@ -1,0 +1,91 @@
+
+import java.io.*;
+import java.net.*;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+
+public class ChatServer {
+
+    private static final int PORT = 5000;
+
+    private static final Set<PrintWriter> clients =
+            ConcurrentHashMap.newKeySet();
+
+    public static void main(String[] args) {
+
+        System.out.println("Starting Chat Server...");
+
+        try (ServerSocket serverSocket =
+                     new ServerSocket(PORT)) {
+
+            System.out.println(
+                "Server running on port " + PORT
+            );
+
+            while (true) {
+                Socket socket = serverSocket.accept();
+
+                System.out.println(
+                    "New client connected: " +
+                    socket.getInetAddress()
+                );
+
+                Thread clientThread = new Thread(
+                    () -> handleClient(socket)
+                );
+
+                clientThread.start();
+            }
+
+        } catch (IOException e) {
+            System.out.println(
+                "Server Error: " + e.getMessage()
+            );
+        }
+    }
+
+    private static void handleClient(Socket socket) {
+
+        PrintWriter writer = null;
+
+        try (Socket client = socket;
+             BufferedReader reader = new BufferedReader(
+                 new InputStreamReader(
+                     client.getInputStream()
+                 )
+             )) {
+
+            writer = new PrintWriter(
+                client.getOutputStream(), true
+            );
+
+            clients.add(writer);
+
+            String message;
+
+            while ((message = reader.readLine()) != null) {
+
+                System.out.println("Message: " + message);
+
+                broadcast(message);
+            }
+
+        } catch (IOException e) {
+            System.out.println("Client disconnected.");
+
+        } finally {
+            if (writer != null) {
+                clients.remove(writer);
+            }
+
+            System.out.println("Client connection closed.");
+        }
+    }
+
+    private static void broadcast(String message) {
+
+        for (PrintWriter client : clients) {
+            client.println(message);
+        }
+    }
+}
